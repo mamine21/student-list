@@ -1,0 +1,105 @@
+
+systemctl status docker
+forker le projet
+git clonne 
+trvailler sur dockerfile
+docker build -t nom:1
+docker images
+docker run --rm --name student-list -dp 5000:5000 -v $(pwd)/student_age.json:/data/student_age.json api-pozos:1
+docker ps 
+docker rm -f nom de conteneur # pour supprimer et refaire le travail 
+docker logs student-list      # voir ou se trouve le pblm 
+ip a                          # pour avoir l'adress ip
+curl -u toto:python -X GET http://172.19.69.253:5000/pozos/api/v1.0/get_student_ages # realiser un test
+docker stop 
+
+
+docker compose -f docker-compose.yml down
+docker compose -f docker-compose.yml up -d
+
+
+
+2. Étape 1 : Création de l'image Docker (Le Dockerfile)
+Au départ, tu as utilisé un Dockerfile pour créer une image Docker de ton application API (par exemple, api-pozos:1). L'image Docker contient tout ce dont ton application a besoin pour fonctionner, notamment :
+
+Le système d'exploitation de base (dans ce cas, python:3.8-buster).
+
+Les dépendances nécessaires comme Flask et les autres bibliothèques (installées via le requirements.txt).
+
+Les fichiers de ton application (comme student_age.py).
+
+L'idée derrière le Dockerfile est de créer une image reproductible, qui contient ton application et ses dépendances, et qui peut être lancée dans n'importe quel environnement avec Docker.
+
+3. Étape 2 : Création du conteneur
+Une fois l'image Docker créée avec le Dockerfile, tu peux l'utiliser pour créer un conteneur. Le conteneur est l'instance exécutée de cette image Docker.
+
+Exemple :
+docker run --name api -d api-pozos:1
+Cela lance le conteneur basé sur l'image api-pozos:1. Le conteneur est l'exécution réelle de l'application dans un environnement isolé.
+
+4. Étape 3 : Utilisation de Docker Compose
+Docker Compose est un outil qui permet de définir et de gérer des applications multi-conteneurs.
+
+Dans ton cas, tu n'as pas seulement une application (API), mais tu as aussi une autre application (le site Web en PHP) qui dépend de l'API. Utiliser Docker Compose te permet de définir ces deux services dans un seul fichier (docker-compose.yml) et de gérer leur orchestration facilement.
+
+Voici ce qu'on a fait avec docker-compose.yml :
+
+Déclaration des services :
+
+webpage (ton site web PHP) utilise l'image php:apache et expose le port 8081.
+
+api (ton API) utilise l'image api-pozos:1 et expose le port 5000.
+
+Volumes : Nous avons fait en sorte que certains fichiers (comme student_age.json) soient partagés entre ton système local et les conteneurs.
+
+Réseau dédié : On a créé un réseau Docker commun (student-list-networks) pour que les deux services puissent communiquer entre eux, même s'ils fonctionnent dans des conteneurs séparés.
+
+5. Étape 4 : Lancer les services via Docker Compose
+Lorsque tu lances docker compose up -d, Docker Compose crée et démarre tous les services définis dans le fichier docker-compose.yml (ici webpage et api).
+
+Cela te permet de lancer plusieurs services en une seule commande, sans avoir à exécuter plusieurs commandes docker run séparées pour chaque service.
+
+6. Étape 5 : Communication entre les services (via l'API et le site Web)
+L'élément clé ici est la communication entre les services. Ton site Web PHP (service webpage) va faire des requêtes HTTP vers ton API Python (service api), en utilisant un appel comme http://api:5000/pozos/api/v1.0/get_student_ages.
+
+La communication se fait via le nom du service (api), car Docker Compose crée un réseau interne permettant à chaque service de se référer à l'autre par son nom de service.
+
+ON a mets en place :
+Une infrastructure sécurisée avec docker-compose.
+
+Un registre privé Docker avec authentification.
+
+
+1. Création d'un Docker Registry privé
+Pour stocker et gérer les images Docker de manière privée, nous avons déployé un Docker Registry privé à l'aide de l'image officielle registry:2.8.1. Ce registry est exposé sur le port 5000 et a été configuré avec une authentification via htpasswd. Un frontend UI a également été déployé avec l'image joxit/docker-registry-ui:2 pour gérer les images via une interface graphique sur le port 8082.
+
+2. Authentification
+Pour pouvoir interagir avec le registry privé, une authentification est requise. Nous avons configuré un utilisateur (pozos) et un mot de passe (change-me). Pour se connecter au registry privé, la commande suivante est utilisée :
+
+bash
+Copier
+Modifier
+docker login -u pozos -p change-me http://localhost:5000
+Cela permet d'établir une session authentifiée pour interagir avec le registry.
+
+3. Tagging de l'image
+Avant de pouvoir pousser l'image vers le registry, nous devons la taguer avec l'URL du registry (en utilisant l'adresse localhost:5000). Voici la commande pour taguer l'image api-pozos:1 :
+
+bash
+Copier
+Modifier
+docker tag api-pozos:1 localhost:5000/api-pozos:1
+4. Pushing de l'image
+Une fois l'image taguée, nous pouvons la pousser vers le registry privé avec la commande docker push :
+
+bash
+Copier
+Modifier
+docker push localhost:5000/api-pozos:1
+Cela envoie l'image vers le repository spécifié dans le registry privé.
+
+5. Vérification via l'interface graphique
+Une fois le push réussi, l'image est visible dans l'interface web accessible sur http://localhost:8082. Il est possible d'y voir les images stockées, y compris celles que nous venons de pousser.
+
+Conclusion
+En résumé, cette étape nous a permis de créer un Docker Registry privé sécurisé, de pousser des images Docker dedans et de vérifier leur disponibilité via une interface graphique. Cette approche permet de gérer des images de manière sécurisée et privée dans un environnement contrôlé.
